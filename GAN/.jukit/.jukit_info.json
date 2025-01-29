@@ -1,0 +1,1 @@
+{"cmd": "plt.figure(figsize=(8, 6))\nplt.plot(x, sigmoid(x), \"b-\", linewidth=2)\nplt.grid(True)\nplt.title(\"Sigmoid Function\")\nplt.xlabel(\"x\")\nplt.ylabel(\"σ(x)\")\n", "cmd_opts": "", "import_complete": 1, "terminal": "kitty"}

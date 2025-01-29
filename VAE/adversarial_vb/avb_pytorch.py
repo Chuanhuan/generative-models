@@ -8,15 +8,24 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import os
 from torch.autograd import Variable
-from tensorflow.examples.tutorials.mnist import input_data
+import torchvision.transforms as transforms
+from torchvision.datasets import MNIST
+from torch.utils.data import DataLoader
 
+transform = transforms.Compose(
+    [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+)
 
-mnist = input_data.read_data_sets('../../MNIST_data', one_hot=True)
+mnist_train = MNIST("../../MNIST_data", train=True, download=True, transform=transform)
+mnist_test = MNIST("../../MNIST_data", train=False, download=True, transform=transform)
+
 mb_size = 32
+train_loader = DataLoader(mnist_train, batch_size=mb_size, shuffle=True)
+test_loader = DataLoader(mnist_test, batch_size=mb_size, shuffle=False)
 z_dim = 10
 eps_dim = 4
-X_dim = mnist.train.images.shape[1]
-y_dim = mnist.train.labels.shape[1]
+X_dim = 28 * 28
+y_dim = 10
 h_dim = 128
 cnt = 0
 lr = 1e-3
@@ -30,7 +39,7 @@ def log(x):
 Q = torch.nn.Sequential(
     torch.nn.Linear(X_dim + eps_dim, h_dim),
     torch.nn.ReLU(),
-    torch.nn.Linear(h_dim, z_dim)
+    torch.nn.Linear(h_dim, z_dim),
 )
 
 # Decoder: p(x|z)
@@ -38,14 +47,12 @@ P = torch.nn.Sequential(
     torch.nn.Linear(z_dim, h_dim),
     torch.nn.ReLU(),
     torch.nn.Linear(h_dim, X_dim),
-    torch.nn.Sigmoid()
+    torch.nn.Sigmoid(),
 )
 
 # Discriminator: T(X, z)
 T = torch.nn.Sequential(
-    torch.nn.Linear(X_dim + z_dim, h_dim),
-    torch.nn.ReLU(),
-    torch.nn.Linear(h_dim, 1)
+    torch.nn.Linear(X_dim + z_dim, h_dim), torch.nn.ReLU(), torch.nn.Linear(h_dim, 1)
 )
 
 
@@ -97,7 +104,7 @@ for it in range(1000000):
     T_q = nn.sigmoid(T(torch.cat([X, z_sample], 1)))
     T_prior = nn.sigmoid(T(torch.cat([X, z], 1)))
 
-    T_loss = -torch.mean(log(T_q) + log(1. - T_prior))
+    T_loss = -torch.mean(log(T_q) + log(1.0 - T_prior))
 
     T_loss.backward()
     T_solver.step()
@@ -105,8 +112,11 @@ for it in range(1000000):
 
     # Print and plot every now and then
     if it % 1000 == 0:
-        print('Iter-{}; ELBO: {:.4}; T_loss: {:.4}'
-              .format(it, -elbo.data[0], -T_loss.data[0]))
+        print(
+            "Iter-{}; ELBO: {:.4}; T_loss: {:.4}".format(
+                it, -elbo.data[0], -T_loss.data[0]
+            )
+        )
 
         samples = P(z).data.numpy()[:16]
 
@@ -116,16 +126,15 @@ for it in range(1000000):
 
         for i, sample in enumerate(samples):
             ax = plt.subplot(gs[i])
-            plt.axis('off')
+            plt.axis("off")
             ax.set_xticklabels([])
             ax.set_yticklabels([])
-            ax.set_aspect('equal')
-            plt.imshow(sample.reshape(28, 28), cmap='Greys_r')
+            ax.set_aspect("equal")
+            plt.imshow(sample.reshape(28, 28), cmap="Greys_r")
 
-        if not os.path.exists('out/'):
-            os.makedirs('out/')
+        if not os.path.exists("out/"):
+            os.makedirs("out/")
 
-        plt.savefig('out/{}.png'
-                    .format(str(cnt).zfill(3)), bbox_inches='tight')
+        plt.savefig("out/{}.png".format(str(cnt).zfill(3)), bbox_inches="tight")
         cnt += 1
         plt.close(fig)
